@@ -1,0 +1,504 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Play, RotateCcw, HelpCircle, Calendar, X, Check, Music, ChevronLeft, ChevronRight, Trophy, Star, Volume2, VolumeX, Gamepad2, Clapperboard, Tv, Dumbbell } from 'lucide-react';
+
+// --- DATA: MULTI-GENRE ---
+const CATEGORIES = [
+  {
+    id: 'music',
+    name: 'Pop Stars & Hits',
+    icon: <Music size={24} />,
+    color: 'from-pink-500 to-rose-500',
+    words: [
+      "Taylor Swift", "Beyoncé", "Lady Gaga", "Justin Bieber", "Ariana Grande", "BTS", "Rihanna", "Katy Perry", "Adele", "Bruno Mars", "Ed Sheeran", "Billie Eilish", "Harry Styles", "Dua Lipa", "The Weeknd", "Miley Cyrus", "Shakira", "Drake", "Kendrick Lamar", "Eminem", "Snoop Dogg", "Jay-Z", "Kanye West", "Britney Spears", "Michael Jackson", "Madonna", "Prince", "Whitney Houston", "Queen", "The Beatles", "Thriller", "Single Ladies", "Bohemian Rhapsody", "Old Town Road", "Despacito", "Gangnam Style"
+    ]
+  },
+  {
+    id: 'movies',
+    name: 'Blockbuster Movies',
+    icon: <Clapperboard size={24} />,
+    color: 'from-purple-500 to-indigo-500',
+    words: [
+      "Leonardo DiCaprio", "Tom Cruise", "Scarlett Johansson", "Dwayne Johnson", "The Rock", "Brad Pitt", "Angelina Jolie", "Will Smith", "Johnny Depp", "Robert Downey Jr.", "Chris Evans", "Tom Holland", "Zendaya", "Margot Robbie", "Ryan Gosling", "Barbie", "Oppenheimer", "Avatar", "Titanic", "Star Wars", "The Avengers", "Spider-Man", "Batman", "Joker", "Harry Potter", "Lord of the Rings", "The Matrix", "Jurassic Park", "Frozen", "The Lion King", "Toy Story", "Shrek", "Pirates of the Caribbean", "Mission Impossible", "Fast & Furious", "Hunger Games", "Twilight"
+    ]
+  },
+  {
+    id: 'gaming',
+    name: 'Video Games',
+    icon: <Gamepad2 size={24} />,
+    color: 'from-green-500 to-emerald-600',
+    words: [
+      "Mario", "Luigi", "Princess Peach", "Bowser", "Pikachu", "Charizard", "Link", "Zelda", "Donkey Kong", "Sonic the Hedgehog", "Master Chief", "Kratos", "Lara Croft", "Minecraft", "Steve", "Roblox", "Fortnite", "Call of Duty", "Grand Theft Auto", "GTA V", "Super Smash Bros", "Mario Kart", "Pokemon", "League of Legends", "Overwatch", "Valorant", "Elden Ring", "God of War", "The Last of Us", "Uncharted", "Resident Evil", "Silent Hill", "Final Fantasy", "World of Warcraft", "Nintendo Switch", "PlayStation 5", "Xbox", "PC Gamer", "Steam", "Twitch Streamer", "Speedrun", "Noob", "Boss Fight"
+    ]
+  },
+  {
+    id: 'sports',
+    name: 'World of Sports',
+    icon: <Dumbbell size={24} />,
+    color: 'from-orange-500 to-red-500',
+    words: [
+      "LeBron James", "Michael Jordan", "Kobe Bryant", "Stephen Curry", "Shaquille O'Neal", "Lionel Messi", "Cristiano Ronaldo", "Neymar", "David Beckham", "Pele", "Tom Brady", "Patrick Mahomes", "Travis Kelce", "Serena Williams", "Tiger Woods", "Usain Bolt", "Simone Biles", "Michael Phelps", "Conor McGregor", "Mike Tyson", "Muhammad Ali", "NBA", "NFL", "FIFA World Cup", "Super Bowl", "Olympics", "Touchdown", "Home Run", "Slam Dunk", "Penalty Kick", "Knockout", "Yellow Card", "Referee", "Goalkeeper", "Quarterback"
+    ]
+  },
+  {
+    id: 'tv',
+    name: 'TV Bingeworthy',
+    icon: <Tv size={24} />,
+    color: 'from-blue-500 to-cyan-500',
+    words: [
+      "Friends", "The Office", "Game of Thrones", "Stranger Things", "Breaking Bad", "The Crown", "Squid Game", "Bridgerton", "The Mandalorian", "Wednesday", "Grey's Anatomy", "The Simpsons", "Family Guy", "SpongeBob SquarePants", "Rick and Morty", "South Park", "Kim Kardashian", "Kylie Jenner", "RuPaul's Drag Race", "Survivor", "Bachelor", "American Idol", "The Voice", "Netflix", "Disney+", "HBO Max", "Hulu", "Prime Video", "Sitcom", "Reality TV", "Anime", "Soap Opera"
+    ]
+  }
+];
+
+// Combine all for 'Quick Play'
+const ALL_WORDS = CATEGORIES.flatMap(c => c.words);
+
+// --- SOUND ENGINE ---
+const playSound = (type, enabled) => {
+  if (!enabled) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  const ctx = new AudioContext();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  const now = ctx.currentTime;
+
+  if (type === 'correct') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  } else if (type === 'pass') {
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.linearRampToValueAtTime(100, now + 0.2);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  } else if (type === 'tick') {
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(800, now);
+    gain.gain.setValueAtTime(0.05, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.start(now);
+    osc.stop(now + 0.05);
+  } else if (type === 'start') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
+    osc.start(now);
+    osc.stop(now + 0.5);
+  } else if (type === 'end') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.linearRampToValueAtTime(100, now + 0.8);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.linearRampToValueAtTime(0.01, now + 0.8);
+    osc.start(now);
+    osc.stop(now + 0.8);
+  }
+};
+
+// --- UTILITIES ---
+function mulberry32(a) {
+    return function() {
+      var t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
+const getDailySeed = () => {
+  const now = new Date();
+  return parseInt(`${now.getFullYear()}${now.getMonth() + 1}${now.getDate()}`);
+};
+
+const getDailyInfo = () => {
+  const now = new Date();
+  const seed = getDailySeed();
+  // Rotate through categories based on the seed
+  const categoryIndex = seed % CATEGORIES.length;
+  return {
+    dateString: now.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }),
+    category: CATEGORIES[categoryIndex]
+  };
+};
+
+// --- COMPONENTS ---
+const Button = ({ onClick, children, className = "", variant = "primary", disabled = false }) => {
+  const baseStyle = "px-6 py-4 rounded-2xl font-bold text-lg transition-all active:scale-95 shadow-lg flex items-center justify-center gap-3";
+  const variants = {
+    primary: "bg-white text-indigo-900 hover:bg-gray-100",
+    secondary: "bg-indigo-900/50 text-white border-2 border-indigo-400 hover:bg-indigo-800",
+    daily: "bg-gradient-to-r from-amber-300 to-orange-500 text-purple-900 border-2 border-white/20",
+    correct: "bg-green-500 text-white",
+    pass: "bg-orange-500 text-white",
+    icon: "p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm"
+  };
+
+  return (
+    <button 
+      onClick={onClick} 
+      disabled={disabled}
+      className={`${variant === 'icon' ? variants.icon : baseStyle + ' ' + variants[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+    >
+      {children}
+    </button>
+  );
+};
+
+const Card = ({ word, status, animate, categoryColor }) => {
+  let bgColor = "bg-white";
+  let textColor = "text-gray-900";
+  let rotation = "rotate-0";
+  
+  if (status === 'correct') {
+    bgColor = "bg-green-500";
+    textColor = "text-white";
+    rotation = "rotate-6";
+  } else if (status === 'pass') {
+    bgColor = "bg-orange-500";
+    textColor = "text-white";
+    rotation = "-rotate-6";
+  }
+
+  return (
+    <div className={`flex-1 w-full max-w-md mx-auto aspect-[3/4] max-h-[60vh] flex items-center justify-center rounded-3xl shadow-2xl p-8 text-center transition-all duration-300 ${bgColor} ${animate ? 'scale-105' : 'scale-100'} ${rotation} border-8 border-white/10`}>
+      <h1 className={`text-5xl md:text-7xl font-black leading-tight select-none ${textColor} drop-shadow-sm break-words`}>
+        {word}
+      </h1>
+    </div>
+  );
+};
+
+export default function App() {
+  const [gameState, setGameState] = useState('menu');
+  const [gameMode, setGameMode] = useState('standard');
+  const [activeCategory, setActiveCategory] = useState(null); // Used for color theming
+  const [score, setScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [currentWord, setCurrentWord] = useState("");
+  const [deck, setDeck] = useState([]);
+  const [results, setResults] = useState([]); 
+  const [countdown, setCountdown] = useState(3);
+  const [cardStatus, setCardStatus] = useState('neutral');
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [dailyInfo, setDailyInfo] = useState(getDailyInfo());
+  
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    setDailyInfo(getDailyInfo());
+  }, []);
+
+  const startStandardGame = () => {
+    setGameMode('standard');
+    setActiveCategory(null); // Mixed bag
+    const shuffled = [...ALL_WORDS].sort(() => 0.5 - Math.random());
+    setDeck(shuffled);
+    launchGame();
+  };
+
+  const startDailyGame = () => {
+    setGameMode('daily');
+    setActiveCategory(dailyInfo.category);
+    const seed = getDailySeed();
+    const rng = mulberry32(seed);
+    const shuffled = [...dailyInfo.category.words];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setDeck(shuffled);
+    launchGame();
+  };
+
+  const launchGame = () => {
+    setScore(0);
+    setResults([]);
+    setTimeLeft(60);
+    setCountdown(3);
+    setGameState('countdown');
+    playSound('tick', soundEnabled);
+  };
+
+  useEffect(() => {
+    if (gameState === 'countdown') {
+      if (countdown > 0) {
+        const timer = setTimeout(() => {
+          setCountdown(c => c - 1);
+          playSound(countdown > 1 ? 'tick' : 'start', soundEnabled);
+        }, 1000);
+        return () => clearTimeout(timer);
+      } else {
+        setGameState('playing');
+        nextCard(deck);
+      }
+    }
+  }, [gameState, countdown, deck, soundEnabled]);
+
+  useEffect(() => {
+    if (gameState === 'playing') {
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            endGame();
+            return 0;
+          }
+          if (prev <= 6) playSound('tick', soundEnabled);
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [gameState, soundEnabled]);
+
+  const endGame = () => {
+    clearInterval(timerRef.current);
+    playSound('end', soundEnabled);
+    setGameState('summary');
+  };
+
+  const nextCard = (currentDeck) => {
+    if (currentDeck.length === 0) {
+      endGame();
+      return;
+    }
+    const [next, ...rest] = currentDeck;
+    setCurrentWord(next);
+    setDeck(rest);
+    setCardStatus('neutral');
+  };
+
+  const handleAnswer = (result) => {
+    if (gameState !== 'playing') return;
+    setResults(prev => [...prev, { word: currentWord, result }]);
+    setCardStatus(result);
+    playSound(result, soundEnabled);
+    if (result === 'correct') setScore(s => s + 1);
+    setTimeout(() => {
+      nextCard(deck);
+    }, 400); 
+  };
+
+  const toggleSound = () => {
+    setSoundEnabled(!soundEnabled);
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) new AudioContext().resume();
+  };
+
+  // Dynamic Background based on category
+  const getBgClass = () => {
+    if (gameState === 'playing' && activeCategory) {
+        return `bg-gradient-to-br ${activeCategory.color}`;
+    }
+    return "bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900";
+  };
+
+  // --- Render Views ---
+
+  if (gameState === 'menu') {
+    return (
+      <div className={`min-h-screen flex flex-col items-center p-6 text-white overflow-hidden ${getBgClass()} transition-colors duration-1000`}>
+        
+        {/* Branding Header */}
+        <div className="w-full flex justify-between items-start mb-6 mt-2">
+            <div className="flex flex-col">
+                <span className="text-yellow-400 font-bold tracking-widest text-[10px] uppercase mb-1">Presented by</span>
+                <div className="flex items-center gap-2">
+                  <Gamepad2 size={20} className="text-yellow-400" />
+                  <h1 className="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-pink-500 drop-shadow-sm">
+                      VLADIcast Gaming
+                  </h1>
+                </div>
+            </div>
+            <button onClick={toggleSound} className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors backdrop-blur-md">
+                {soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
+            </button>
+        </div>
+
+        {/* Main Logo Area */}
+        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-sm">
+            <div className="relative mb-8 group">
+                <div className="absolute inset-0 bg-blue-500 blur-3xl opacity-20 rounded-full animate-pulse"></div>
+                <div className="bg-white/10 p-8 rounded-[2rem] shadow-2xl backdrop-blur-sm border border-white/10 transform rotate-3 group-hover:rotate-6 transition-transform">
+                   <div className="grid grid-cols-2 gap-4">
+                      <Music className="text-pink-400" />
+                      <Gamepad2 className="text-green-400" />
+                      <Clapperboard className="text-yellow-400" />
+                      <Dumbbell className="text-blue-400" />
+                   </div>
+                </div>
+            </div>
+            
+            <h2 className="text-5xl font-black mb-2 text-center drop-shadow-xl tracking-tight leading-none">ULTIMATE<br/>TRIVIA</h2>
+            <p className="text-lg mb-10 text-indigo-200 font-medium text-center">Heads Up Party Game</p>
+            
+            <div className="space-y-4 w-full z-10">
+            
+            {/* Daily Challenge */}
+            <div className="relative group">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-full animate-pulse z-20 whitespace-nowrap shadow-sm border border-rose-400 uppercase tracking-wider">
+                    Today's Genre
+                </div>
+                <Button onClick={startDailyGame} variant="daily" className="w-full text-left relative overflow-hidden group-hover:brightness-110 group-active:scale-95">
+                    <div className="bg-white/20 p-2 rounded-xl">
+                        {dailyInfo.category.icon}
+                    </div>
+                    <div className="flex flex-col items-start leading-tight z-10">
+                        <span className="text-xs font-bold uppercase tracking-wider text-purple-900/60">Daily Challenge</span>
+                        <span className="text-xl font-black text-purple-900">{dailyInfo.category.name}</span>
+                    </div>
+                    <div className="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-white/30 to-transparent"></div>
+                </Button>
+            </div>
+
+            <Button onClick={startStandardGame} className="w-full">
+                <Play size={24} fill="currentColor" /> Quick Play (Mix All)
+            </Button>
+            
+            <div className="mt-8 text-center opacity-50 text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse">
+                Hold Device to Forehead
+            </div>
+            </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'countdown') {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center ${getBgClass()}`}>
+        <h3 className="text-white/50 font-bold text-3xl uppercase tracking-widest mb-12 animate-pulse">Get Ready</h3>
+        <div className="text-[10rem] font-black text-white animate-bounce leading-none drop-shadow-2xl">
+          {countdown > 0 ? countdown : "GO!"}
+        </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'playing') {
+    return (
+      <div className={`min-h-screen flex flex-col relative overflow-hidden select-none ${getBgClass()}`}>
+        {/* Top Bar */}
+        <div className="flex justify-between items-center p-4 z-10">
+          <div className={`px-6 py-2 rounded-full font-mono font-bold text-2xl shadow-lg transition-colors border-2 ${timeLeft <= 5 ? 'bg-red-500 border-red-400 text-white animate-pulse' : 'bg-black/20 border-white/10 text-white'}`}>
+            {timeLeft}s
+          </div>
+          {activeCategory && (
+            <div className="absolute left-1/2 -translate-x-1/2 top-6 text-white/30 flex items-center gap-2 font-bold uppercase tracking-widest text-xs">
+                 {activeCategory.icon} {activeCategory.name}
+            </div>
+          )}
+          <button onClick={() => { clearInterval(timerRef.current); setGameState('menu'); }} className="bg-black/20 p-3 rounded-full text-white hover:bg-red-500/80 transition-colors backdrop-blur-md">
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Game Area */}
+        <div className="flex-1 flex items-center justify-center p-6 relative z-10">
+          <Card word={currentWord} status={cardStatus} animate={cardStatus !== 'neutral'} />
+        </div>
+
+        {/* Touch Zones */}
+        <div className="absolute inset-0 z-20 flex">
+          {/* PASS ZONE */}
+          <div 
+            className="w-1/2 h-full active:bg-orange-500/20 transition-colors flex items-center justify-start pl-6"
+            onClick={() => handleAnswer('pass')}
+          >
+            <div className="opacity-20 text-white flex flex-col items-center gap-4">
+              <ChevronLeft size={64} />
+              <span className="font-black text-3xl uppercase tracking-widest rotate-90 md:rotate-0">Pass</span>
+            </div>
+          </div>
+
+          {/* CORRECT ZONE */}
+          <div 
+            className="w-1/2 h-full active:bg-green-500/20 transition-colors flex items-center justify-end pr-6"
+            onClick={() => handleAnswer('correct')}
+          >
+            <div className="opacity-20 text-white flex flex-col items-center gap-4">
+              <span className="font-black text-3xl uppercase tracking-widest rotate-90 md:rotate-0">Correct</span>
+              <ChevronRight size={64} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'summary') {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center">
+        <div className="w-full max-w-md flex flex-col h-full">
+          
+          <div className="text-center mb-6 mt-4">
+            <h2 className="text-xl font-bold mb-4 uppercase tracking-widest text-gray-500">Game Over</h2>
+            <div className="inline-flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl w-full py-8 shadow-2xl mb-4 relative overflow-hidden border border-white/10">
+              <div className="absolute top-0 left-0 w-full h-full bg-white/5 skew-x-12 transform -translate-x-10"></div>
+              <Trophy className="text-yellow-300 mr-4 drop-shadow-md" size={56} />
+              <div className="flex flex-col items-start">
+                 <span className="text-7xl font-black leading-none">{score}</span>
+                 <span className="text-indigo-200 font-bold tracking-widest text-sm">POINTS SCORED</span>
+              </div>
+            </div>
+            
+            {gameMode === 'daily' && activeCategory ? (
+              <div className="bg-white/5 text-yellow-400 py-3 px-4 rounded-xl text-sm font-bold border border-yellow-500/20 flex items-center justify-center gap-2 shadow-lg">
+                <Star size={16} fill="currentColor" /> {activeCategory.name} Challenge
+              </div>
+            ) : (
+              <div className="bg-white/5 text-gray-300 py-3 px-4 rounded-xl text-sm font-bold border border-white/10 flex items-center justify-center gap-2">
+                Mixed Mode (All Categories)
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto bg-black/20 rounded-2xl p-1 shadow-inner mb-6 border border-white/5">
+            <div className="space-y-1 p-2">
+            {results.map((item, index) => (
+              <div key={index} className={`flex items-center justify-between p-4 rounded-xl ${item.result === 'correct' ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/5 border border-red-500/10'}`}>
+                <span className={`font-bold text-lg ${item.result === 'pass' ? 'text-gray-500 line-through' : 'text-white'}`}>{item.word}</span>
+                {item.result === 'correct' ? (
+                  <div className="bg-green-500/20 p-1 rounded-full">
+                    <Check className="text-green-400" size={16} />
+                  </div>
+                ) : (
+                  <span className="text-orange-500 text-[10px] font-black uppercase tracking-wider opacity-60">Passed</span>
+                )}
+              </div>
+            ))}
+            {results.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-30 font-mono text-sm">
+                 <p>NO CARDS PLAYED</p>
+              </div>
+            )}
+            </div>
+          </div>
+
+          <div className="space-y-3 mt-auto pb-4">
+            <Button onClick={gameMode === 'daily' ? startDailyGame : startStandardGame} className="w-full">
+              <RotateCcw size={20} /> Play Again
+            </Button>
+            <Button onClick={() => setGameState('menu')} variant="secondary" className="w-full">
+              Back to Menu
+            </Button>
+          </div>
+          
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
